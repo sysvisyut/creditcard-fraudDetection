@@ -7,7 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.decomposition import PCA
@@ -476,6 +477,109 @@ def select_features(df: pd.DataFrame):
     print(f"Shape of y (target): {y_final.shape}")
     
     return X_final, y_final
+def prepare_modeling_data(X: pd.DataFrame, y: pd.Series):
+    """
+    Perform Train/Val/Test Splitting, Bias-Variance Analysis, and Sampling.
+    """
+    print("-" * 50)
+    print("DATA SPLITTING & SAMPLING STRATEGIES")
+    print("-" * 50)
+    
+    os.makedirs(os.path.join("outputs", "plots"), exist_ok=True)
+    
+    # --- 1. TRAIN/VAL/TEST SPLIT ---
+    print("\n--- 1. TRAIN/VAL/TEST SPLIT ---")
+    
+    # First split: Train 70%, Temp 30%
+    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.30, stratify=y, random_state=42)
+    # Second split: Val 15%, Test 15% (50% of the Temp 30%)
+    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.50, stratify=y_temp, random_state=42)
+    
+    print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+    print(f"X_val shape: {X_val.shape}, y_val shape: {y_val.shape}")
+    print(f"X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
+    
+    def print_class_dist(name, current_y):
+        dist = current_y.value_counts(normalize=True) * 100
+        print(f"  {name} Class Dist -> 0: {dist.get(0, 0):.2f}%, 1: {dist.get(1, 0):.2f}%")
+        
+    print("\nClass Distributions (Stratification Check):")
+    print_class_dist("Train", y_train)
+    print_class_dist("Val", y_val)
+    print_class_dist("Test", y_test)
+    
+    # --- 2. BIAS-VARIANCE TRADEOFF ANALYSIS ---
+    print("\n--- 2. BIAS-VARIANCE TRADEOFF ANALYSIS ---")
+    C_values = [0.001, 0.01, 0.1, 1, 10, 100]
+    train_f1_scores = []
+    val_f1_scores = []
+    
+    from sklearn.exceptions import ConvergenceWarning
+    warnings.filterwarnings("ignore", category=ConvergenceWarning)
+    
+    print("Training LogisticRegression across varying C values...")
+    best_c = C_values[0]
+    best_val_f1 = -1
+    
+    for c in C_values:
+        lr = LogisticRegression(C=c, max_iter=1000, random_state=42, class_weight='balanced')
+        lr.fit(X_train, y_train)
+        
+        train_preds = lr.predict(X_train)
+        val_preds = lr.predict(X_val)
+        
+        t_f1 = f1_score(y_train, train_preds)
+        v_f1 = f1_score(y_val, val_preds)
+        
+        train_f1_scores.append(t_f1)
+        val_f1_scores.append(v_f1)
+        
+        if v_f1 > best_val_f1:
+            best_val_f1 = v_f1
+            best_c = c
+            
+    plt.figure(figsize=(10, 6))
+    plt.plot(C_values, train_f1_scores, marker='o', label='Train F1 Score')
+    plt.plot(C_values, val_f1_scores, marker='s', label='Validation F1 Score')
+    plt.xscale('log')
+    plt.title('Bias-Variance Tradeoff Analysis (Logistic Regression)')
+    plt.xlabel('C value (Inverse of Regularization Strength)')
+    plt.ylabel('F1 Score')
+    plt.legend()
+    plt.grid(True, which="both", ls="--")
+    plt.tight_layout()
+    plt.savefig(os.path.join("outputs", "plots", "bias_variance_tradeoff.png"))
+    plt.close()
+    
+    print(f"\nOptimal C value (highest Validation F1): {best_c}")
+    print("Interpretation: Low C = high bias (underfitting), High C = high variance (overfitting)")
+    
+    # --- 3. SAMPLING STRATEGIES ---
+    print("\n--- 3. SAMPLING STRATEGIES ---")
+    sampling_variants = {}
+    
+    print(f"Original Training Class Distribution: {dict(y_train.value_counts())}")
+    sampling_variants['original'] = (X_train, y_train)
+    
+    print("\nApplying SMOTE...")
+    smote = SMOTE(random_state=42)
+    X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
+    print(f"After SMOTE Class Distribution: {dict(y_train_sm.value_counts())}")
+    sampling_variants['smote'] = (X_train_sm, y_train_sm)
+    
+    print("\nApplying RandomOverSampler...")
+    ros = RandomOverSampler(random_state=42)
+    X_train_ros, y_train_ros = ros.fit_resample(X_train, y_train)
+    print(f"After RandomOverSampler Class Distribution: {dict(y_train_ros.value_counts())}")
+    sampling_variants['random_oversample'] = (X_train_ros, y_train_ros)
+    
+    print("\nApplying RandomUnderSampler...")
+    rus = RandomUnderSampler(random_state=42)
+    X_train_rus, y_train_rus = rus.fit_resample(X_train, y_train)
+    print(f"After RandomUnderSampler Class Distribution: {dict(y_train_rus.value_counts())}")
+    sampling_variants['random_undersample'] = (X_train_rus, y_train_rus)
+
+    return sampling_variants, X_val, y_val, X_test, y_test
 
 def main():
     # Define dataset path relative to project root
@@ -501,6 +605,8 @@ def main():
     
     # Feature Selection and Dimensionality Reduction
     X, y = select_features(df)
-
+    
+    # Data Splitting, Tradeoff Analysis, and Sampling
+    sampling_variants, X_val, y_val, X_test, y_test = prepare_modeling_data(X, y)
 if __name__ == "__main__":
     main()
