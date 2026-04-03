@@ -186,6 +186,119 @@ def visualize_class_distribution(df: pd.DataFrame):
     print(f"\nDataset contains {total:,} transactions. Only {fraud_pct:.2f}% are fraudulent — confirming severe class imbalance that requires special handling.")
 
 
+def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Perform Data Preprocessing: Missing values, outliers, and noise.
+    """
+    print("-" * 50)
+    print("DATA PREPROCESSING")
+    print("-" * 50)
+    
+    # Ensure plots directory exists
+    os.makedirs(os.path.join("outputs", "plots"), exist_ok=True)
+    
+    # ---------- MISSING DATA ----------
+    print("\n--- MISSING DATA ---")
+    missing_before = df.isnull().sum()
+    total_missing_before = missing_before.sum()
+    
+    # 2. Print a heatmap of missing values
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(df.isnull(), cbar=False, cmap='viridis')
+    plt.title('Missing Values Heatmap')
+    plt.tight_layout()
+    plt.savefig(os.path.join("outputs", "plots", "missing_heatmap.png"))
+    plt.close()
+    
+    # 3. Impute using median for numerical columns
+    if total_missing_before > 0:
+        for col in df.columns:
+            if df[col].isnull().any() and pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].fillna(df[col].median())
+                
+    missing_after = df.isnull().sum()
+    total_missing_after = missing_after.sum()
+    
+    # 4. Print statement
+    print(f"Missing values before: {total_missing_before} | After imputation: {total_missing_after}")
+
+    # ---------- OUTLIER HANDLING ----------
+    print("\n--- OUTLIER HANDLING ---")
+    cols_to_clip = ['Amount', 'Time']
+    
+    # Save before data for plotting
+    df_before_outliers_amount = df['Amount'].copy()
+    df_before_outliers_time = df['Time'].copy()
+    
+    outliers_clipped_dict = {}
+    
+    for col in cols_to_clip:
+        # 1. & 2. Calculate IQR and print count
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        outliers_count = ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
+        print(f"Outliers detected in {col} (IQR method): {outliers_count}")
+        
+        # 3. Apply Winsorization (1st and 99th percentile)
+        p1 = df[col].quantile(0.01)
+        p99 = df[col].quantile(0.99)
+        
+        # Track how many points actually get clipped for the summary table
+        clipped_count = ((df[col] < p1) | (df[col] > p99)).sum()
+        outliers_clipped_dict[col] = clipped_count
+        
+        df[col] = df[col].clip(lower=p1, upper=p99)
+
+    # 4. Plot boxplots Before vs After
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    sns.boxplot(y=df_before_outliers_amount, ax=axes[0, 0], color='lightblue').set_title('Amount (Before)')
+    sns.boxplot(y=df['Amount'], ax=axes[0, 1], color='lightgreen').set_title('Amount (After Winsorization)')
+    sns.boxplot(y=df_before_outliers_time, ax=axes[1, 0], color='lightblue').set_title('Time (Before)')
+    sns.boxplot(y=df['Time'], ax=axes[1, 1], color='lightgreen').set_title('Time (After Winsorization)')
+    plt.tight_layout()
+    plt.savefig(os.path.join("outputs", "plots", "outliers_before_after.png"))
+    plt.close()
+
+    # ---------- NOISE HANDLING ----------
+    print("\n--- NOISE HANDLING ---")
+    duplicate_count = df.duplicated().sum()
+    print(f"Duplicate rows detected: {duplicate_count}")
+    
+    shape_before = df.shape
+    if duplicate_count > 0:
+        df = df.drop_duplicates()
+    shape_after = df.shape
+    
+    print(f"Shape before dropping duplicates: {shape_before}")
+    print(f"Shape after dropping duplicates: {shape_after}")
+
+    # ---------- SUMMARY TABLE ----------
+    print("\n--- PREPROCESSING SUMMARY TABLE ---")
+    summary_data = []
+    
+    for i, col in enumerate(df.columns):
+        mb = missing_before[col]
+        ma = missing_after[col]
+        
+        if col in cols_to_clip:
+            out_clipped = outliers_clipped_dict[col]
+        else:
+            out_clipped = "N/A"
+            
+        dups = duplicate_count if i == 0 else "-"
+        
+        summary_data.append([col, mb, ma, out_clipped, dups])
+        
+    summary_df = pd.DataFrame(summary_data, columns=['column', 'missing_before', 'missing_after', 'outliers_clipped', 'duplicates_removed'])
+    print(summary_df.to_string(index=False))
+
+    return df
+
+
 def main():
     # Define dataset path relative to project root
     dataset_path = os.path.join('data', 'creditcard.csv')
@@ -201,6 +314,9 @@ def main():
     
     # Visualize class distribution
     visualize_class_distribution(df)
+    
+    # Data Preprocessing
+    df = preprocess_data(df)
 
 if __name__ == "__main__":
     main()
