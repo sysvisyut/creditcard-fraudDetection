@@ -4,9 +4,11 @@ from src.data_loader import load_data, identify_features
 from src.preprocessing import full_preprocessing_pipeline
 from src.features import scale_features, select_features, reduce_dimensions
 from src.sampling import split_data, apply_smote, apply_oversample, apply_undersample, bias_variance_analysis
-from src.models import train_baseline_models, train_sampling_models
+from src.models import train_baseline_models, train_sampling_models, train_with_class_weights
 from src.evaluation import evaluate_model, build_master_comparison_table
-from src.visualization import plot_class_distribution, plot_confusion_matrix, plot_roc_curve, plot_pr_curve, plot_sampling_confusion_matrices, plot_sampling_roc_curves, plot_sampling_pr_curves
+from src.visualization import (plot_class_distribution, plot_confusion_matrix, plot_roc_curve, plot_pr_curve, 
+                               plot_sampling_confusion_matrices, plot_sampling_roc_curves, plot_sampling_pr_curves,
+                               plot_classweight_confusion_matrices, plot_classweight_roc_curves, plot_classweight_pr_curves)
 
 def main():
     # 1. Load Data
@@ -115,6 +117,42 @@ def main():
     print("\n--- SAMPLING RESULTS SUMMARY ---")
     print(samp_results_df.to_string(index=False))
     print("\nInsight: SMOTE typically improves recall vs undersampling which loses data.")
+
+    # 14. Cost-Sensitive Learning (Class Weights)
+    cw_models = train_with_class_weights(sampling_variants['original'][0], sampling_variants['original'][1])
+    
+    cw_results = []
+    cw_y_pred_dict = {}
+    cw_y_prob_dict = {}
+    
+    for name, model in cw_models.items():
+        print(f"\nEvaluating {name}...")
+        res = evaluate_model(model, name, X_val, y_val)
+        cw_results.append(res)
+        cw_y_pred_dict[name] = res['y_pred']
+        cw_y_prob_dict[name] = res['y_prob']
+        
+    # Plot visualization matrices
+    plot_classweight_confusion_matrices(y_val, cw_y_pred_dict)
+    plot_classweight_roc_curves(cw_y_prob_dict, X_val, y_val)
+    plot_classweight_pr_curves(cw_y_prob_dict, X_val, y_val)
+    
+    # 15. Comparison Table for Class Weights
+    clean_cw_results = []
+    for r in cw_results:
+        clean_cw_results.append({
+            'Model': r['Model'],
+            'class_weight': 'balanced' if 'XGBoost' not in r['Model'] else 'scale_pos_weight',
+            'Accuracy': r['Accuracy'],
+            'Precision': r['Precision'],
+            'Recall': r['Recall'],
+            'F1': r['F1'],
+            'ROC-AUC': r['ROC-AUC']
+        })
+    cw_results_df = pd.DataFrame(clean_cw_results)
+    print("\n--- COST-SENSITIVE RESULTS SUMMARY ---")
+    print(cw_results_df.to_string(index=False))
+    print("\nInsight: Cost-sensitive learning penalizes misclassification of fraud more heavily, improving recall without generating synthetic data.")
 
 if __name__ == "__main__":
     main()
