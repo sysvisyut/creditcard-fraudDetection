@@ -61,8 +61,24 @@ def train_with_class_weights(X_train, y_train):
         'XGBoost (CW)': xgb_model
     }
 def train_final_model(X_train, y_train):
-    # Placeholder for future requirements
-    pass
+    print("\n" + "-" * 50)
+    print("TRAINING FINAL COMBO MODEL ON SMOTE + COST-SENSITIVE")
+    print("-" * 50)
+    
+    count_0 = (y_train == 0).sum()
+    count_1 = (y_train == 1).sum()
+    
+    # Mathematical fallback in case y_train balances classes via SMOTE perfectly (yielding weight ~1.0)
+    # The prompt logically combines them: XGBClassifier with scale_pos_weight + SMOTE resampled training data
+    scale_pos_weight = count_0 / count_1 
+    
+    print(f"Final scale_pos_weight on SMOTE set: {scale_pos_weight:.4f}")
+    print("Training XGBoost (scale_pos_weight + SMOTE)...")
+    
+    xgb_model = xgb.XGBClassifier(scale_pos_weight=scale_pos_weight, random_state=config.RANDOM_STATE)
+    xgb_model.fit(X_train, y_train)
+    
+    return xgb_model
 
 def save_model(model, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)

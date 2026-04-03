@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import numpy as np
+import pandas as pd
 from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, precision_recall_curve, auc
+from sklearn.decomposition import PCA
 import config
 
 def plot_class_distribution(y):
@@ -256,3 +259,110 @@ def plot_classweight_pr_curves(models_prob_dict, X, y):
     plt.tight_layout()
     plt.savefig(os.path.join(config.OUTPUT_PLOTS, "classweight_pr_curves.png"))
     plt.close()
+
+def plot_final_confusion_matrix(y_true, y_pred):
+    plt.figure(figsize=(6, 5))
+    cm = confusion_matrix(y_true, y_pred)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
+    plt.title('Final Model Confusion Matrix (Test Set)')
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "final_confusion_matrix.png"))
+    plt.close()
+
+def plot_final_roc_curve(y_true, y_prob):
+    plt.figure(figsize=(8, 6))
+    fpr, tpr, _ = roc_curve(y_true, y_prob)
+    auc_val = roc_auc_score(y_true, y_prob)
+    plt.plot(fpr, tpr, lw=2, color='darkorange', label=f"Final Model (AUC = {auc_val:.4f})")
+    plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
+    plt.title('ROC Curve (Test Set)')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.legend(loc='lower right')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "final_roc_curve.png"))
+    plt.close()
+
+def plot_final_pr_curve(y_true, y_prob):
+    plt.figure(figsize=(8, 6))
+    precision, recall, _ = precision_recall_curve(y_true, y_prob)
+    pr_auc = auc(recall, precision)
+    plt.plot(recall, precision, lw=2, color='green', label=f"Final Model (PR-AUC = {pr_auc:.4f})")
+    plt.title('Precision-Recall Curve (Test Set)')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.legend(loc='lower left')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "final_pr_curve.png"))
+    plt.close()
+
+def plot_roc_vs_pr_comparison(y_true, y_prob):
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # ROC
+    fpr, tpr, _ = roc_curve(y_true, y_prob)
+    roc_auc_val = roc_auc_score(y_true, y_prob)
+    axes[0].plot(fpr, tpr, lw=2, color='darkorange', label=f"AUC = {roc_auc_val:.4f}")
+    axes[0].plot([0, 1], [0, 1], 'k--')
+    axes[0].set_title('ROC Curve')
+    axes[0].set_xlabel('False Positive Rate')
+    axes[0].set_ylabel('True Positive Rate')
+    axes[0].legend(loc='lower right')
+    axes[0].grid(True, alpha=0.3)
+    
+    # PR
+    precision, recall, _ = precision_recall_curve(y_true, y_prob)
+    pr_auc_val = auc(recall, precision)
+    axes[1].plot(recall, precision, lw=2, color='green', label=f"PR-AUC = {pr_auc_val:.4f}")
+    axes[1].set_title('Precision-Recall Curve')
+    axes[1].set_xlabel('Recall')
+    axes[1].set_ylabel('Precision')
+    axes[1].legend(loc='lower left')
+    axes[1].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "roc_vs_pr_comparison.png"))
+    plt.close()
+
+def plot_final_feature_importance(model, features):
+    # Depending on model architecture (XGB vs RF), attributes differ mathematically:
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    
+    top_n = min(15, len(features))
+    top_indices = indices[:top_n]
+    top_importances = importances[top_indices]
+    top_features = [features[i] for i in top_indices]
+    
+    plt.figure(figsize=(10, 8))
+    sns.barplot(x=top_importances, y=top_features, palette="viridis")
+    plt.title(f'Top {top_n} Feature Importances - Final Model')
+    plt.xlabel('Relative Importance')
+    plt.ylabel('Feature')
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "final_feature_importance.png"))
+    plt.close()
+
+def plot_clustering_analysis(X_test, y_pred_cluster, y_true):
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(X_test)
+    
+    plt.figure(figsize=(14, 6))
+    
+    # Using Subplots correctly
+    plt.subplot(1, 2, 1)
+    sns.scatterplot(x=X_pca[:, 0], y=X_pca[:, 1], hue=y_true, palette=['blue', 'red'], alpha=0.6, s=20)
+    plt.title('True Labels (PCA 2D)')
+    
+    plt.subplot(1, 2, 2)
+    sns.scatterplot(x=X_pca[:, 0], y=X_pca[:, 1], hue=y_pred_cluster, palette=['blue', 'purple'], alpha=0.6, s=20)
+    plt.title('KMeans Cluster Assignments (PCA 2D)')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "clustering_analysis.png"))
+    plt.close()
+
