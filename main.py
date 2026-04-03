@@ -5,10 +5,11 @@ from src.preprocessing import full_preprocessing_pipeline
 from src.features import scale_features, select_features, reduce_dimensions
 from src.sampling import split_data, apply_smote, apply_oversample, apply_undersample, bias_variance_analysis
 from src.models import train_baseline_models, train_sampling_models, train_with_class_weights
-from src.evaluation import evaluate_model, build_master_comparison_table
+from src.evaluation import evaluate_model, build_master_comparison_table, tune_threshold
 from src.visualization import (plot_class_distribution, plot_confusion_matrix, plot_roc_curve, plot_pr_curve, 
                                plot_sampling_confusion_matrices, plot_sampling_roc_curves, plot_sampling_pr_curves,
-                               plot_classweight_confusion_matrices, plot_classweight_roc_curves, plot_classweight_pr_curves)
+                               plot_classweight_confusion_matrices, plot_classweight_roc_curves, plot_classweight_pr_curves,
+                               plot_threshold_curves, plot_threshold_confusion_matrices)
 
 def main():
     # 1. Load Data
@@ -153,6 +154,31 @@ def main():
     print("\n--- COST-SENSITIVE RESULTS SUMMARY ---")
     print(cw_results_df.to_string(index=False))
     print("\nInsight: Cost-sensitive learning penalizes misclassification of fraud more heavily, improving recall without generating synthetic data.")
+
+    # 16. Decision Threshold Tuning
+    best_rf_cw_model = cw_models['Random Forest (CW)']
+    y_prob_best = best_rf_cw_model.predict_proba(X_val)[:, 1]
+    
+    threshold_df, optimal_threshold, high_recall_threshold = tune_threshold(best_rf_cw_model, X_val, y_val)
+    
+    # Visualizations
+    plot_threshold_curves(threshold_df, default_threshold=0.5, optimal_threshold=optimal_threshold)
+    plot_threshold_confusion_matrices(y_val, y_prob_best, optimal_threshold=optimal_threshold, default_threshold=0.5)
+    
+    # Re-evaluate
+    print(f"\nRe-evaluating Optimized Model at Threshold = {optimal_threshold}")
+    evaluate_model(best_rf_cw_model, "Random Forest (CW) Optimized", X_val, y_val, threshold=optimal_threshold)
+    
+    # 17. Subset DataFrame Outputs
+    target_thresholds = [0.3, 0.4, 0.5, optimal_threshold, high_recall_threshold]
+    # filter and drop duplicates if thresholds overlap exactly
+    subset_df = threshold_df[threshold_df['Threshold'].isin(target_thresholds)].drop_duplicates(subset=['Threshold'])
+    
+    # Explicitly pull accuracy, precision, recall, f1 dynamically 
+    print("\n--- THRESHOLD COMPARISON TABLE ---")
+    print(subset_df[['Threshold', 'Accuracy', 'Precision', 'Recall', 'F1']].to_string(index=False))
+    
+    print('\nInsight: "In fraud detection, recall is critical — missing a fraud costs more than a false alarm. Lowering threshold increases recall but reduces precision."')
 
 if __name__ == "__main__":
     main()

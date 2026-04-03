@@ -124,8 +124,45 @@ def plot_pr_curve(models_prob_dict, X, y):
     plt.savefig(os.path.join(config.OUTPUT_PLOTS, "baseline_pr_curves.png"))
     plt.close()
 
-def plot_threshold_curves(thresholds, metrics):
-    pass
+def plot_threshold_curves(threshold_df, default_threshold=0.5, optimal_threshold=None):
+    plt.figure(figsize=(10, 6))
+    plt.plot(threshold_df['Threshold'], threshold_df['Precision'], label='Precision', color='blue', lw=2)
+    plt.plot(threshold_df['Threshold'], threshold_df['Recall'], label='Recall', color='green', lw=2)
+    plt.plot(threshold_df['Threshold'], threshold_df['F1'], label='F1-Score', color='red', lw=2)
+    
+    plt.axvline(x=default_threshold, color='black', linestyle='--', label=f'Default ({default_threshold})', alpha=0.7)
+    if optimal_threshold is not None:
+        plt.axvline(x=optimal_threshold, color='purple', linestyle=':', label=f'Optimal ({optimal_threshold})', alpha=0.9, lw=2)
+        
+    plt.title('Performance Metrics vs Decision Threshold')
+    plt.xlabel('Decision Threshold')
+    plt.ylabel('Score')
+    plt.legend(loc='lower left')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "threshold_tuning_curves.png"))
+    plt.close()
+
+def plot_threshold_confusion_matrices(y_true, y_prob, optimal_threshold, default_threshold=0.5):
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    y_pred_default = (y_prob >= default_threshold).astype(int)
+    cm_default = confusion_matrix(y_true, y_pred_default)
+    sns.heatmap(cm_default, annot=True, fmt='d', cmap='Blues', ax=axes[0], cbar=False)
+    axes[0].set_title(f'Default Threshold ({default_threshold})')
+    axes[0].set_xlabel('Predicted Label')
+    axes[0].set_ylabel('True Label')
+    
+    y_pred_optimal = (y_prob >= optimal_threshold).astype(int)
+    cm_optimal = confusion_matrix(y_true, y_pred_optimal)
+    sns.heatmap(cm_optimal, annot=True, fmt='d', cmap='Oranges', ax=axes[1], cbar=False)
+    axes[1].set_title(f'Optimal Threshold ({optimal_threshold})')
+    axes[1].set_xlabel('Predicted Label')
+    axes[1].set_ylabel('True Label')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "threshold_confusion_matrices.png"))
+    plt.close()
 
 def plot_feature_importance(model, features):
     pass

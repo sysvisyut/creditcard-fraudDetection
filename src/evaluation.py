@@ -28,9 +28,47 @@ def evaluate_model(model, model_name, X, y, threshold=0.5) -> dict:
         'y_prob': y_prob
     }
 
+import numpy as np
+
 def tune_threshold(model, X_val, y_val):
-    # Placeholder
-    pass
+    print("\n" + "-" * 50)
+    print("THRESHOLD ANALYSIS")
+    print("-" * 50)
+    
+    y_prob = model.predict_proba(X_val)[:, 1]
+    
+    thresholds = np.arange(0.1, 0.95, 0.05)
+    results = []
+    
+    for t in thresholds:
+        y_pred = (y_prob >= t).astype(int)
+        acc = accuracy_score(y_val, y_pred)
+        # Avoid division by zero warnings if precision collapses
+        prec = precision_score(y_val, y_pred, pos_label=1, zero_division=0)
+        rec = recall_score(y_val, y_pred, pos_label=1)
+        f1 = f1_score(y_val, y_pred, pos_label=1, zero_division=0)
+        
+        results.append({
+            'Threshold': round(t, 2),
+            'Accuracy': acc,
+            'Precision': prec,
+            'Recall': rec,
+            'F1': f1
+        })
+        
+    threshold_df = pd.DataFrame(results)
+    
+    optimal_idx = threshold_df['F1'].idxmax()
+    optimal_threshold = threshold_df.loc[optimal_idx, 'Threshold']
+    
+    # Maximize recall ideally, but let's just pick the max mathematically
+    recall_idx = threshold_df['Recall'].idxmax()
+    high_recall_threshold = threshold_df.loc[recall_idx, 'Threshold']
+    
+    print(f"Optimal Threshold (Max F1): {optimal_threshold}")
+    print(f"High Recall Threshold (Max Recall): {high_recall_threshold}")
+    
+    return threshold_df, optimal_threshold, high_recall_threshold
 
 def compute_clustering_score(X_test):
     # Placeholder
