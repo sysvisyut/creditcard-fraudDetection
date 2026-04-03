@@ -9,6 +9,8 @@ import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.decomposition import PCA
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 import xgboost as xgb
@@ -364,6 +366,116 @@ def transform_data(df: pd.DataFrame) -> pd.DataFrame:
     print("\nData Transformation complete. All features are now on comparable scales. Dataset ready for feature selection.\n")
     
     return df
+def select_features(df: pd.DataFrame):
+    """
+    Perform Feature Selection and Dimensionality Reduction.
+    """
+    print("-" * 50)
+    print("FEATURE SELECTION & DIMENSIONALITY REDUCTION")
+    print("-" * 50)
+    
+    os.makedirs(os.path.join("outputs", "plots"), exist_ok=True)
+    
+    # --- CORRELATION ANALYSIS ---
+    print("\n--- CORRELATION ANALYSIS ---")
+    corr_matrix = df.corr()
+    corr_with_class = corr_matrix['Class'].drop('Class')
+    
+    # Sort by absolute value for printing and plotting
+    corr_sorted_abs = corr_with_class.abs().sort_values(ascending=True) # Ascending for horizontal bar
+    corr_sorted_desc = corr_with_class.reindex(corr_with_class.abs().sort_values(ascending=False).index)
+    
+    plt.figure(figsize=(10, 8))
+    corr_with_class.loc[corr_sorted_abs.index].plot(kind='barh', color='skyblue')
+    plt.title('Feature Correlation with Target (Class) - Sorted by Absolute Value')
+    plt.xlabel('Correlation Coefficient')
+    plt.ylabel('Features')
+    plt.tight_layout()
+    plt.savefig(os.path.join("outputs", "plots", "feature_correlation.png"))
+    plt.close()
+    
+    print("Top 10 Most Correlated Features with Fraud (Class):")
+    for feat, val in corr_sorted_desc.head(10).items():
+        print(f"  {feat}: {val:.4f}")
+        
+    # --- FEATURE IMPORTANCE (Tree-based) ---
+    print("\n--- FEATURE IMPORTANCE (Tree-based) ---")
+    X_full = df.drop('Class', axis=1)
+    y_full = df['Class']
+    
+    print("Training RandomForestClassifier...")
+    rf = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42, n_jobs=-1)
+    rf.fit(X_full, y_full)
+    
+    importances = pd.Series(rf.feature_importances_, index=X_full.columns)
+    importances_sorted = importances.sort_values(ascending=False)
+    
+    top_20_features = importances_sorted.head(20)
+    
+    plt.figure(figsize=(10, 8))
+    sns.barplot(x=top_20_features.values, y=top_20_features.index, palette='viridis')
+    plt.title('Top 20 Feature Importances (RandomForest)')
+    plt.xlabel('Importance Score')
+    plt.ylabel('Features')
+    plt.tight_layout()
+    plt.savefig(os.path.join("outputs", "plots", "feature_importance.png"))
+    plt.close()
+    
+    # Select top 20 features
+    selected_features = top_20_features.index.tolist()
+    
+    # --- DIMENSIONALITY REDUCTION (PCA for visualization only) ---
+    print("\n--- DIMENSIONALITY REDUCTION (PCA Visualization) ---")
+    X_selected = X_full[selected_features]
+    
+    pca = PCA(n_components=2, random_state=42)
+    X_pca = pca.fit_transform(X_selected)
+    
+    df_pca = pd.DataFrame(data=X_pca, columns=['PCA1', 'PCA2'])
+    df_pca['Class'] = y_full.values
+    
+    # Sample 5000 points for speed
+    if len(df_pca) > 5000:
+        df_pca_sample = df_pca.sample(n=5000, random_state=42)
+    else:
+        df_pca_sample = df_pca
+        
+    plt.figure(figsize=(10, 8))
+    sns.scatterplot(
+        x='PCA1', y='PCA2', 
+        hue='Class', 
+        palette={0: 'blue', 1: 'red'},
+        data=df_pca_sample, 
+        alpha=0.6,
+        edgecolor=None
+    )
+    plt.title('2D PCA Visualization of Selected Features (Sampled 5000 points)')
+    
+    # Custom legend
+    handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', markersize=10),
+               plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=10)]
+    plt.legend(handles, ['Legitimate (0)', 'Fraud (1)'], title='Class')
+    plt.tight_layout()
+    plt.savefig(os.path.join("outputs", "plots", "pca_2d_visualization.png"))
+    plt.close()
+    
+    print("PCA Explained Variance Ratio:")
+    print(f"  Component 1: {pca.explained_variance_ratio_[0]*100:.2f}%")
+    print(f"  Component 2: {pca.explained_variance_ratio_[1]*100:.2f}%")
+    print(f"  Total Explained: {sum(pca.explained_variance_ratio_)*100:.2f}%")
+    
+    # --- FINAL FEATURE SET ---
+    print("\n--- FINAL FEATURE SET ---")
+    print("Final list of selected features being used for modeling:")
+    print(", ".join(selected_features))
+    
+    X_final = X_full[selected_features]
+    y_final = y_full
+    
+    print(f"\nShape of X (features): {X_final.shape}")
+    print(f"Shape of y (target): {y_final.shape}")
+    
+    return X_final, y_final
 
 def main():
     # Define dataset path relative to project root
@@ -386,6 +498,9 @@ def main():
     
     # Data Transformation and Integration
     df = transform_data(df)
+    
+    # Feature Selection and Dimensionality Reduction
+    X, y = select_features(df)
 
 if __name__ == "__main__":
     main()
