@@ -199,7 +199,7 @@ def main():
     plot_final_feature_importance(final_model, list(X_test.columns))
     
     # Generate PCA Clustering visual maps
-    y_pred_cluster = compute_clustering_score(X_test, y_test)
+    sil_score, y_pred_cluster = compute_clustering_score(X_test, y_test)
     plot_clustering_analysis(X_test, y_pred_cluster, y_test)
     
     print("\n[+] Full Pipeline Refactor Executed Successfully 🚀")

@@ -124,7 +124,7 @@ def compute_clustering_score(X_test, y_test):
     
     print(f"Silhouette Score: {sil_score:.2f} — measures how well the model separates fraud vs legit")
     
-    return cluster_labels
+    return sil_score, cluster_labels
 
 def build_master_comparison_table(all_results: list) -> pd.DataFrame:
     clean_results = []

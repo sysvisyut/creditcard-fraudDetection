@@ -4,7 +4,7 @@ import seaborn as sns
 import os
 import config
 
-def check_missing(df: pd.DataFrame) -> dict:
+def check_missing(df: pd.DataFrame, return_metrics=False):
     print("\n--- MISSING DATA ---")
     missing_before = df.isnull().sum()
     total_missing_before = missing_before.sum()
@@ -25,9 +25,11 @@ def check_missing(df: pd.DataFrame) -> dict:
     total_missing_after = missing_after.sum()
     
     print(f"Missing values before: {total_missing_before} | After imputation: {total_missing_after}")
-    return {"before": missing_before.to_dict(), "after": missing_after.to_dict()}
+    if return_metrics:
+        return df, {"before": missing_before.to_dict(), "after": missing_after.to_dict()}
+    return df
 
-def handle_outliers(df: pd.DataFrame) -> dict:
+def handle_outliers(df: pd.DataFrame, return_metrics=False):
     print("\n--- OUTLIER HANDLING ---")
     cols_to_clip = ['Amount', 'Time']
     
@@ -63,9 +65,11 @@ def handle_outliers(df: pd.DataFrame) -> dict:
     plt.savefig(os.path.join(config.OUTPUT_PLOTS, "outliers_before_after.png"))
     plt.close()
     
-    return outliers_clipped_dict
+    if return_metrics:
+        return df, outliers_clipped_dict
+    return df
 
-def remove_duplicates(df: pd.DataFrame) -> int:
+def remove_duplicates(df: pd.DataFrame, return_metrics=False):
     print("\n--- NOISE HANDLING ---")
     duplicate_count = df.duplicated().sum()
     print(f"Duplicate rows detected: {duplicate_count}")
@@ -77,16 +81,18 @@ def remove_duplicates(df: pd.DataFrame) -> int:
     
     print(f"Shape before dropping duplicates: {shape_before}")
     print(f"Shape after dropping duplicates: {shape_after}")
-    return duplicate_count
+    if return_metrics:
+        return df, duplicate_count
+    return df
 
 def full_preprocessing_pipeline(df: pd.DataFrame) -> pd.DataFrame:
     print("-" * 50)
     print("DATA PREPROCESSING")
     print("-" * 50)
     
-    missing_metrics = check_missing(df)
-    outliers_clipped_dict = handle_outliers(df)
-    duplicate_count = remove_duplicates(df)
+    df, missing_metrics = check_missing(df, return_metrics=True)
+    df, outliers_clipped_dict = handle_outliers(df, return_metrics=True)
+    df, duplicate_count = remove_duplicates(df, return_metrics=True)
     
     print("\n--- PREPROCESSING SUMMARY TABLE ---")
     summary_data = []

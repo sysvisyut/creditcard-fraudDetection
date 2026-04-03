@@ -168,7 +168,24 @@ def plot_threshold_confusion_matrices(y_true, y_prob, optimal_threshold, default
     plt.close()
 
 def plot_feature_importance(model, features):
-    pass
+    if not hasattr(model, 'feature_importances_'):
+        return
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    
+    top_n = min(20, len(features))
+    top_indices = indices[:top_n]
+    top_importances = importances[top_indices]
+    top_features = [features[i] for i in top_indices]
+    
+    plt.figure(figsize=(10, 8))
+    sns.barplot(x=top_importances, y=top_features, palette="viridis")
+    plt.title(f'Top {top_n} Feature Importances')
+    plt.xlabel('Relative Importance')
+    plt.ylabel('Feature')
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "feature_importance.png"))
+    plt.close()
 
 def plot_sampling_confusion_matrices(y_true, y_pred_dict):
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
