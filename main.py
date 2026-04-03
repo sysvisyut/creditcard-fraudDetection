@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE, RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 import xgboost as xgb
@@ -298,6 +299,71 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+def transform_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Perform Data Transformation and Integration.
+    """
+    print("-" * 50)
+    print("DATA TRANSFORMATION AND INTEGRATION")
+    print("-" * 50)
+    
+    # --- SCALING ---
+    # WHY we scale: V1-V28 are already PCA-scaled components, meaning they are centered and scaled.
+    # The 'Amount' and 'Time' columns are in their original units, which vary widely in scale and magnitude.
+    # Scaling Amount and Time ensures ALL our features are on a comparable scale, 
+    # preventing features with larger magnitudes from dominating the learning process
+    # and ensuring distance-based or gradient descent algorithms perform optimally.
+    
+    scaler_amount = StandardScaler()
+    scaler_time = StandardScaler()
+    
+    df['Amount_Scaled'] = scaler_amount.fit_transform(df[['Amount']])
+    df['Time_Scaled'] = scaler_time.fit_transform(df[['Time']])
+    
+    # Drop original 'Amount' and 'Time' columns
+    df.drop(['Amount', 'Time'], axis=1, inplace=True)
+    
+    # --- DATA INTEGRATION ---
+    print("\n--- DATA INTEGRATION ---")
+    print("[1] All features are confirmed to be in a single unified dataframe.")
+    print(f"\n[2] Final dataset shape: {df.shape}")
+    print("\n[3] Final column list:")
+    print(", ".join(df.columns.tolist()))
+    
+    print("\n[4] Final dtypes:")
+    print(df.dtypes)
+    
+    # --- VERIFICATION ---
+    print("\n--- VERIFICATION ---")
+    
+    os.makedirs(os.path.join("outputs", "plots"), exist_ok=True)
+    
+    # Plot distribution of Amount_Scaled and Time_Scaled (histograms)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    sns.histplot(df['Amount_Scaled'], bins=50, kde=True, ax=axes[0], color='purple')
+    axes[0].set_title('Distribution of Amount_Scaled')
+    
+    sns.histplot(df['Time_Scaled'], bins=50, kde=True, ax=axes[1], color='orange')
+    axes[1].set_title('Distribution of Time_Scaled')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join("outputs", "plots", "scaled_distributions.png"))
+    plt.close()
+    
+    # Print min, max, mean, std of Amount_Scaled and Time_Scaled
+    print("\nScaled Feature Statistics:")
+    print(f"{'Feature':<15} | {'Min':>10} | {'Max':>10} | {'Mean':>10} | {'Std':>10}")
+    print("-" * 65)
+    for col in ['Amount_Scaled', 'Time_Scaled']:
+        col_min = df[col].min()
+        col_max = df[col].max()
+        col_mean = df[col].mean()
+        col_std = df[col].std()
+        print(f"{col:<15} | {col_min:>10.4f} | {col_max:>10.4f} | {col_mean:>10.4f} | {col_std:>10.4f}")
+    
+    print("\nData Transformation complete. All features are now on comparable scales. Dataset ready for feature selection.\n")
+    
+    return df
 
 def main():
     # Define dataset path relative to project root
@@ -317,6 +383,9 @@ def main():
     
     # Data Preprocessing
     df = preprocess_data(df)
+    
+    # Data Transformation and Integration
+    df = transform_data(df)
 
 if __name__ == "__main__":
     main()
