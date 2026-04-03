@@ -1,11 +1,12 @@
+import pandas as pd
 import config
 from src.data_loader import load_data, identify_features
 from src.preprocessing import full_preprocessing_pipeline
 from src.features import scale_features, select_features, reduce_dimensions
 from src.sampling import split_data, apply_smote, apply_oversample, apply_undersample, bias_variance_analysis
-from src.models import train_baseline_models
+from src.models import train_baseline_models, train_sampling_models
 from src.evaluation import evaluate_model, build_master_comparison_table
-from src.visualization import plot_class_distribution, plot_confusion_matrix, plot_roc_curve, plot_pr_curve
+from src.visualization import plot_class_distribution, plot_confusion_matrix, plot_roc_curve, plot_pr_curve, plot_sampling_confusion_matrices, plot_sampling_roc_curves, plot_sampling_pr_curves
 
 def main():
     # 1. Load Data
@@ -79,6 +80,41 @@ def main():
     
     # Summary
     build_master_comparison_table(all_results)
+    
+    # 12. Evaluate Sampling Variants
+    sampling_models = train_sampling_models(sampling_variants)
+    
+    sampling_results = []
+    samp_y_pred_dict = {}
+    samp_y_prob_dict = {}
+    
+    for name, model in sampling_models.items():
+        print(f"\nEvaluating {name}...")
+        res = evaluate_model(model, name, X_val, y_val)
+        sampling_results.append(res)
+        samp_y_pred_dict[name] = res['y_pred']
+        samp_y_prob_dict[name] = res['y_prob']
+        
+    # Plot visualization matrices
+    plot_sampling_confusion_matrices(y_val, samp_y_pred_dict)
+    plot_sampling_roc_curves(samp_y_prob_dict, X_val, y_val)
+    plot_sampling_pr_curves(samp_y_prob_dict, X_val, y_val)
+    
+    # 13. Comparison Table for Sampling
+    clean_samp_results = []
+    for r in sampling_results:
+        clean_samp_results.append({
+            'Sampling Method': r['Model'],
+            'Accuracy': r['Accuracy'],
+            'Precision': r['Precision'],
+            'Recall': r['Recall'],
+            'F1': r['F1'],
+            'ROC-AUC': r['ROC-AUC']
+        })
+    samp_results_df = pd.DataFrame(clean_samp_results)
+    print("\n--- SAMPLING RESULTS SUMMARY ---")
+    print(samp_results_df.to_string(index=False))
+    print("\nInsight: SMOTE typically improves recall vs undersampling which loses data.")
 
 if __name__ == "__main__":
     main()

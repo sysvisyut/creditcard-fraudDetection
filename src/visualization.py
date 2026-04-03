@@ -129,3 +129,48 @@ def plot_threshold_curves(thresholds, metrics):
 
 def plot_feature_importance(model, features):
     pass
+
+def plot_sampling_confusion_matrices(y_true, y_pred_dict):
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    for i, (name, y_pred) in enumerate(y_pred_dict.items()):
+        cm = confusion_matrix(y_true, y_pred)
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=axes[i], cbar=False)
+        axes[i].set_title(f'{name} Confusion Matrix')
+        axes[i].set_xlabel('Predicted Label')
+        axes[i].set_ylabel('True Label')
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "sampling_confusion_matrices.png"))
+    plt.close()
+
+def plot_sampling_roc_curves(models_prob_dict, X, y):
+    plt.figure(figsize=(10, 8))
+    for name, y_prob in models_prob_dict.items():
+        fpr, tpr, _ = roc_curve(y, y_prob)
+        auc_val = roc_auc_score(y, y_prob)
+        plt.plot(fpr, tpr, lw=2, label=f"{name} (AUC = {auc_val:.4f})")
+        
+    plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
+    plt.title('Sampling Models ROC Curve')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.legend(loc='lower right')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "sampling_roc_curves.png"))
+    plt.close()
+
+def plot_sampling_pr_curves(models_prob_dict, X, y):
+    plt.figure(figsize=(10, 8))
+    for name, y_prob in models_prob_dict.items():
+        precision, recall, _ = precision_recall_curve(y, y_prob)
+        pr_auc = auc(recall, precision)
+        plt.plot(recall, precision, lw=2, label=f"{name} (PR-AUC = {pr_auc:.4f})")
+        
+    plt.title('Sampling Models Precision-Recall Curve')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.legend(loc='lower left')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "sampling_pr_curves.png"))
+    plt.close()

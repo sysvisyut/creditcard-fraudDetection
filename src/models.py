@@ -15,6 +15,22 @@ def train_baseline_models(X_train, y_train):
     
     return {'Logistic Regression': lr, 'Random Forest': rf}
 
+def train_sampling_models(sampling_variants):
+    print("\n" + "-" * 50)
+    print("TRAINING SAMPLING VARIANTS (RANDOM FOREST)")
+    print("-" * 50)
+    
+    sampling_models = {}
+    
+    for variant in ['smote', 'random_oversample', 'random_undersample']:
+        print(f"Training Random Forest on {variant} data...")
+        X_train, y_train = sampling_variants[variant]
+        rf = RandomForestClassifier(n_estimators=config.N_ESTIMATORS, random_state=config.RANDOM_STATE, n_jobs=-1)
+        rf.fit(X_train, y_train)
+        sampling_models[variant] = rf
+        
+    return sampling_models
+
 def train_with_class_weights(X_train, y_train):
     # Placeholder for future requirements
     pass
