@@ -5,13 +5,13 @@ from src.preprocessing import full_preprocessing_pipeline
 from src.features import scale_features, select_features, reduce_dimensions
 from src.sampling import split_data, apply_smote, apply_oversample, apply_undersample, bias_variance_analysis
 from src.models import train_baseline_models, train_sampling_models, train_with_class_weights, train_final_model, save_model
-from src.evaluation import evaluate_model, build_master_comparison_table, tune_threshold, evaluate_final_model, compute_clustering_score
+from src.evaluation import evaluate_model, build_master_comparison_table, tune_threshold, evaluate_final_model, compute_clustering_score, generate_master_comparison, generate_business_impact_report
 from src.visualization import (plot_class_distribution, plot_confusion_matrix, plot_roc_curve, plot_pr_curve, 
                                plot_sampling_confusion_matrices, plot_sampling_roc_curves, plot_sampling_pr_curves,
                                plot_classweight_confusion_matrices, plot_classweight_roc_curves, plot_classweight_pr_curves,
                                plot_threshold_curves, plot_threshold_confusion_matrices,
                                plot_final_confusion_matrix, plot_final_roc_curve, plot_final_pr_curve, plot_roc_vs_pr_comparison,
-                               plot_final_feature_importance, plot_clustering_analysis)
+                               plot_final_feature_importance, plot_clustering_analysis, plot_master_comparison)
 
 def main():
     # 1. Load Data
@@ -158,10 +158,10 @@ def main():
     print("\nInsight: Cost-sensitive learning penalizes misclassification of fraud more heavily, improving recall without generating synthetic data.")
 
     # 16. Decision Threshold Tuning
-    best_rf_cw_model = cw_models['Random Forest (CW)']
-    y_prob_best = best_rf_cw_model.predict_proba(X_val)[:, 1]
+    best_cw_model = cw_models['XGBoost (CW)']
+    y_prob_best = best_cw_model.predict_proba(X_val)[:, 1]
     
-    threshold_df, optimal_threshold, high_recall_threshold = tune_threshold(best_rf_cw_model, X_val, y_val)
+    threshold_df, optimal_threshold, high_recall_threshold = tune_threshold(best_cw_model, X_val, y_val)
     
     # Visualizations
     plot_threshold_curves(threshold_df, default_threshold=0.5, optimal_threshold=optimal_threshold)
@@ -169,7 +169,7 @@ def main():
     
     # Re-evaluate
     print(f"\nRe-evaluating Optimized Model at Threshold = {optimal_threshold}")
-    evaluate_model(best_rf_cw_model, "Random Forest (CW) Optimized", X_val, y_val, threshold=optimal_threshold)
+    evaluate_model(best_cw_model, "XGBoost (CW) Optimized", X_val, y_val, threshold=optimal_threshold)
     
     # 17. Subset DataFrame Outputs
     target_thresholds = [0.3, 0.4, 0.5, optimal_threshold, high_recall_threshold]
@@ -183,13 +183,15 @@ def main():
     print('\nInsight: "In fraud detection, recall is critical — missing a fraud costs more than a false alarm. Lowering threshold increases recall but reduces precision."')
 
     # 18. Final Model Training & Evaluation on TEST SET
-    final_model = train_final_model(sampling_variants['smote'][0], sampling_variants['smote'][1])
+    # We train the BEST performing combo (XGBoost with Class Weights) as our final model
+    final_model = cw_models['XGBoost (CW)']
     
     # Save the model
     save_model(final_model, config.OUTPUT_MODELS + "final_fraud_model.pkl")
     
-    # Evaluate natively on X_test passing optimal threshold calculated earlier
-    final_eval_results = evaluate_final_model(final_model, X_test, y_test, threshold=optimal_threshold)
+    # Evaluate natively on X_test passing optimal threshold calculated earlier using evaluate_model()!
+    print(f"\nEvaluating FINAL MODEL on TEST SET with Threshold = {optimal_threshold}")
+    final_eval_results = evaluate_model(final_model, "Best Model + optimal threshold (FINAL)", X_test, y_test, threshold=optimal_threshold)
     
     # Advanced visualizations on completely unseen data
     plot_final_confusion_matrix(y_test, final_eval_results['y_pred'])
@@ -201,6 +203,30 @@ def main():
     # Generate PCA Clustering visual maps
     sil_score, y_pred_cluster = compute_clustering_score(X_test, y_test)
     plot_clustering_analysis(X_test, y_pred_cluster, y_test)
+    
+    # 19. Generate MASTER COMPARISON TABLE
+    master_df = generate_master_comparison(all_results, sampling_results, cw_results, final_eval_results, optimal_threshold)
+    plot_master_comparison(master_df)
+    
+    # 20. BUSINESS IMPACT INTERPRETATION
+    generate_business_impact_report(y_test, final_eval_results['y_pred'], final_eval_results['y_prob'], optimal_threshold, "XGBoost (SMOTE + CW)")
+    
+    # 21. FINAL PROJECT SUMMARY
+    print("\n" + "=" * 50)
+    print("FINAL PROJECT SUMMARY")
+    print("=" * 50)
+    print("✅ Data Predictors and Target Identification")
+    print("✅ Class Distribution Visualization")
+    print("✅ Data Preprocessing (missing, outliers, noise)")
+    print("✅ Data Transformation and Integration")
+    print("✅ Feature Selection / Dimensionality Reduction / Feature Extraction")
+    print("✅ Data Sampling & Splitting — Bias-Variance Tradeoff")
+    print("✅ Baseline Model (without balancing)")
+    print("✅ Imbalance Remedy 1: Sampling (SMOTE, Oversampling, Undersampling)")
+    print("✅ Imbalance Remedy 2: Class Weights (Cost-Sensitive Learning)")
+    print("✅ Imbalance Remedy 3: Decision Threshold Tuning")
+    print("✅ Performance Evaluation (Accuracy, Precision, Recall, F1, ROC-AUC, Clustering)")
+    print("✅ Business Impact Interpretation")
     
     print("\n[+] Full Pipeline Refactor Executed Successfully 🚀")
 

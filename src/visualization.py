@@ -383,3 +383,23 @@ def plot_clustering_analysis(X_test, y_pred_cluster, y_true):
     plt.savefig(os.path.join(config.OUTPUT_PLOTS, "clustering_analysis.png"))
     plt.close()
 
+def plot_master_comparison(master_df):
+    plt.figure(figsize=(14, 8))
+    
+    x = np.arange(len(master_df['Model']))
+    width = 0.35
+    
+    fig, ax = plt.subplots(figsize=(14, 8))
+    rects1 = ax.bar(x - width/2, master_df['F1'], width, label='F1-Score', color='teal')
+    rects2 = ax.bar(x + width/2, master_df['ROC-AUC'], width, label='ROC-AUC', color='coral')
+    
+    ax.set_ylabel('Scores')
+    ax.set_title('Model Comparison: F1 vs ROC-AUC across all techniques')
+    ax.set_xticks(x)
+    ax.set_xticklabels(master_df['Model'], rotation=45, ha="right")
+    ax.legend(loc='lower right')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(config.OUTPUT_PLOTS, "master_model_comparison.png"))
+    plt.close()
+

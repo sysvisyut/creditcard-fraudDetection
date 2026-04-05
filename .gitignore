@@ -3,16 +3,25 @@ venv/
 env/
 .env
 
-# Python
+# Python & Testing
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Data and Logs
+# IDE Configuration
+.vscode/
+.idea/
+
+# Data, Analytics, and Logs
 data/
+outputs/
 *.log
+final_run_analysis.txt
 .DS_Store
 
-# Outputs
-outputs/
+# Jupyter Notebooks (if later used)
+.ipynb_checkpoints/
