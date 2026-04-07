@@ -93,7 +93,7 @@ def select_features(X_full: pd.DataFrame, y_full: pd.Series) -> list:
     top_20_features = importances_sorted.head(20)
     
     plt.figure(figsize=(10, 8))
-    sns.barplot(x=top_20_features.values, y=top_20_features.index, palette='viridis')
+    sns.barplot(x=top_20_features.values, y=top_20_features.index, hue=top_20_features.index, palette='viridis', legend=False)
     plt.title('Top 20 Feature Importances (RandomForest)')
     plt.xlabel('Importance Score')
     plt.ylabel('Features')

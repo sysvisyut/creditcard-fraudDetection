@@ -25,7 +25,7 @@ def plot_class_distribution(y):
     
     # 1. Bar chart
     plt.figure(figsize=(8, 6))
-    ax = sns.barplot(x=labels, y=counts, palette=colors)
+    ax = sns.barplot(x=labels, y=counts, hue=labels, palette=colors, legend=False)
     plt.title('Count of Legitimate vs Fraudulent Transactions')
     plt.xlabel('Transaction Class')
     plt.ylabel('Count')
@@ -65,7 +65,7 @@ def plot_class_distribution(y):
     
     # 4. Log-scale bar chart
     plt.figure(figsize=(8, 6))
-    ax = sns.barplot(x=labels, y=counts, palette=colors)
+    ax = sns.barplot(x=labels, y=counts, hue=labels, palette=colors, legend=False)
     plt.yscale('log')
     plt.title('Log Scale: Legitimate vs Fraudulent Transactions')
     plt.xlabel('Transaction Class')
@@ -356,7 +356,7 @@ def plot_final_feature_importance(model, features):
     top_features = [features[i] for i in top_indices]
     
     plt.figure(figsize=(10, 8))
-    sns.barplot(x=top_importances, y=top_features, palette="viridis")
+    sns.barplot(x=top_importances, y=top_features, hue=top_features, palette="viridis", legend=False)
     plt.title(f'Top {top_n} Feature Importances - Final Model')
     plt.xlabel('Relative Importance')
     plt.ylabel('Feature')
