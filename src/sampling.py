@@ -34,7 +34,7 @@ def split_data(X: pd.DataFrame, y: pd.Series):
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 def apply_smote(X_train: pd.DataFrame, y_train: pd.Series):
-    print("\nApplying SMOTE...")
+    print("\nApplying SMOTE...") #synthetic minority oversampling technique
     smote = SMOTE(random_state=config.RANDOM_STATE)
     X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
     print(f"After SMOTE Class Distribution: {dict(y_train_sm.value_counts())}")
